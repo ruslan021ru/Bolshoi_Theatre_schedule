@@ -35,13 +35,27 @@
 
 ## Шаг 3: Развертывание Frontend на GitHub Pages
 
+### Вариант A: Использование GitHub Actions (рекомендуется)
+
 1. В вашем GitHub репозитории перейдите в **Settings** → **Pages**
 2. В разделе **Source** выберите:
-   - **Branch**: `main` (или `master`)
-   - **Folder**: `/web` (важно указать папку web!)
+   - **Source**: `GitHub Actions`
 3. Нажмите **Save**
-4. Дождитесь публикации (обычно 1-2 минуты)
-5. Ваш сайт будет доступен по адресу: `https://your-username.github.io/your-repo-name/`
+4. Файл `.github/workflows/deploy.yml` уже создан и будет автоматически копировать файлы из папки `web/` в корень при каждом push в ветку `main`
+5. После первого push дождитесь завершения workflow (можно проверить во вкладке **Actions**)
+6. Ваш сайт будет доступен по адресу: `https://your-username.github.io/your-repo-name/`
+
+### Вариант B: Ручное копирование файлов
+
+Если GitHub Actions недоступен, можно вручную скопировать файлы:
+
+1. Скопируйте файлы `web/index.html` и `web/app.js` в корень репозитория
+2. В **Settings** → **Pages** выберите:
+   - **Source**: `Deploy from a branch`
+   - **Branch**: `main`
+   - **Folder**: `/ (root)`
+3. Нажмите **Save**
+4. Ваш сайт будет доступен по адресу: `https://your-username.github.io/your-repo-name/`
 
 ## Шаг 4: Настройка Frontend для работы с API
 
