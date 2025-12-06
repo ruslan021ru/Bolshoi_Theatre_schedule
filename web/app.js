@@ -797,10 +797,12 @@
 
     // Генерация месячного календаря
     function generateMonthCalendar(year, month) {
-        // Используем московское время для всех вычислений
-        const firstDay = createMoscowDate(year, month - 1, 1);
-        const lastDay = createMoscowDate(year, month, 0);
-        const daysInMonth = lastDay.getUTCDate();
+        // Вычисляем количество дней в месяце (не зависит от часового пояса)
+        // Используем стандартный способ: создаем дату первого дня следующего месяца и вычитаем день
+        const firstDayNextMonth = new Date(Date.UTC(year, month, 1));
+        const lastDayOfMonth = new Date(Date.UTC(year, month, 0));
+        const daysInMonth = lastDayOfMonth.getUTCDate();
+        
         const slots = [];
         let slotId = 1;
         
@@ -3417,14 +3419,14 @@
 				grid.appendChild(header);
 			});
 
-			// Получаем первый день месяца и количество дней (используем московское время)
+			// Получаем первый день месяца и количество дней
 			const firstDayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
 			const firstDayDow = getMoscowDayOfWeek(firstDayStr);
 			const startOffset = firstDayDow; // 0=Monday
 			
-			// Вычисляем количество дней в месяце через московское время
-			const lastDay = createMoscowDate(currentYear, currentMonth + 1, 0);
-			const daysInMonth = lastDay.getUTCDate();
+			// Вычисляем количество дней в месяце (не зависит от часового пояса)
+			const lastDayOfMonth = new Date(Date.UTC(currentYear, currentMonth + 1, 0));
+			const daysInMonth = lastDayOfMonth.getUTCDate();
 
 			// Пустые ячейки до начала месяца
 			for (let i = 0; i < startOffset; i++) {
