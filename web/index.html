@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Большой Театр - Планировщик расписания</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+Pro:wght@400;600&display=swap" rel="stylesheet">
+	<style>
+		* { box-sizing: border-box; }
+		body {
+			font-family: 'Source Sans Pro', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+			margin: 0;
+			padding: 0;
+			background: linear-gradient(135deg, #2d3748 0%, #1a202c 50%, #2d3748 100%);
+			background-attachment: fixed;
+			min-height: 100vh;
+			color: #1a202c;
+			position: relative;
+		}
+		body::before {
+			content: '';
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			opacity: 0.18;
+			background-image: 
+				repeating-linear-gradient(90deg, transparent, transparent 98px, rgba(255,255,255,0.09) 98px, rgba(255,255,255,0.09) 100px),
+				repeating-linear-gradient(0deg, transparent, transparent 98px, rgba(255,255,255,0.08) 98px, rgba(255,255,255,0.08) 100px),
+				url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cg stroke='white' fill='none' stroke-width='1.2' opacity='1'%3E%3Cpath d='M0 100 Q50 80 100 100 T200 100'/%3E%3Cpath d='M0 100 Q50 120 100 100 T200 100'/%3E%3Cpath d='M100 0 Q80 50 100 100 T100 200' stroke-width='0.8'/%3E%3Cpath d='M100 0 Q120 50 100 100 T100 200' stroke-width='0.8'/%3E%3Ccircle cx='100' cy='100' r='30' stroke-width='0.7'/%3E%3Ccircle cx='100' cy='100' r='20' stroke-width='0.7'/%3E%3C/g%3E%3C/svg%3E");
+			background-size: 100px 100px, 100px 100px, 300px 300px;
+			pointer-events: none;
+			z-index: 0;
+		}
+		body::after {
+			content: '';
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			opacity: 0.15;
+			background-image: 
+				url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cg stroke='white' fill='none' stroke-width='1' opacity='1'%3E%3Cpath d='M100 10 L110 40 L140 40 L115 60 L125 90 L100 75 L75 90 L85 60 L60 40 L90 40 Z'/%3E%3Cpath d='M100 20 L105 35 L120 35 L110 45 L115 60 L100 50 L85 60 L90 45 L80 35 L95 35 Z' stroke-width='0.6'/%3E%3C/g%3E%3C/svg%3E"),
+				radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.12) 0%, transparent 70%),
+				radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.09) 0%, transparent 60%),
+				radial-gradient(ellipse at 80% 50%, rgba(255,255,255,0.09) 0%, transparent 60%);
+			background-size: 250px 250px, 100% 100%, 800px 600px, 600px 800px;
+			background-position: 0 0, center top, left center, right center;
+			pointer-events: none;
+			z-index: 0;
+		}
+		.container {
+			display: block;
+			padding: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			position: relative;
+			z-index: 1;
+		}
+		.main-tab-content {
+			display: none;
+		}
+		.main-tab-content.active {
+			display: block;
+		}
+		.main-tabs {
+			display: flex;
+			gap: 8px;
+			margin-bottom: 20px;
+			border-bottom: 2px solid rgba(148, 163, 184, 0.3);
+		}
+		.main-tab-button {
+			padding: 14px 24px;
+			background: transparent;
+			border: none;
+			border-bottom: 3px solid transparent;
+			color: #94a3b8;
+			font-weight: 600;
+			font-size: 16px;
+			cursor: pointer;
+			transition: all 0.3s;
+			position: relative;
+		}
+		.main-tab-button:hover {
+			color: #e2e8f0;
+			background: rgba(148, 163, 184, 0.1);
+		}
+		.main-tab-button.active {
+			color: #cbd5e1;
+			border-bottom-color: #64748b;
+			background: rgba(148, 163, 184, 0.1);
+		}
+		.sub-tabs {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-bottom: 20px;
+			border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+			padding-bottom: 12px;
+		}
+		.sub-tab-button {
+			padding: 10px 16px;
+			background: rgba(255,255,255,0.7);
+			border: 2px solid rgba(148, 163, 184, 0.3);
+			border-radius: 8px;
+			color: #475569;
+			font-weight: 600;
+			font-size: 13px;
+			cursor: pointer;
+			transition: all 0.3s;
+		}
+		.sub-tab-button:hover {
+			background: rgba(255,255,255,0.9);
+			color: #1e293b;
+			border-color: rgba(100, 116, 139, 0.5);
+		}
+		.sub-tab-button.active {
+			background: rgba(148, 163, 184, 0.15);
+			color: #334155;
+			border-color: #64748b;
+			box-shadow: 0 2px 8px rgba(100, 116, 139, 0.2);
+		}
+		.sub-tab-content {
+			display: none;
+		}
+		.sub-tab-content.active {
+			display: block;
+		}
+		.main-tab-content {
+			min-height: 500px;
+		}
+		#sub-tab-productions, #sub-tab-stages, #sub-tab-timeslots, 
+		#sub-tab-people, #sub-tab-roles, #sub-tab-person-roles,
+		#sub-tab-constraints, #sub-tab-actions {
+			padding: 8px 0;
+		}
+		.sub-tab-content > div {
+			overflow-x: auto;
+		}
+		#productionsList, #stagesList, #timeslotsList, 
+		#peopleList, #rolesList, #personProductionRolesList {
+			min-height: 200px;
+		}
+		#productionsList > div, #stagesList > div, #peopleList > div,
+		#rolesList > div, #personProductionRolesList > div {
+			word-wrap: break-word;
+		}
+		#productionsList input, #productionsList select,
+		#stagesList input, #peopleList input,
+		#rolesList input, #rolesList select,
+		#personProductionRolesList select {
+			min-width: 100px;
+			font-size: 13px;
+		}
+		.sub-tab-content {
+			background: rgba(255, 255, 255, 0.85);
+			border-radius: 12px;
+			padding: 20px;
+			margin-top: 12px;
+		}
+		#main-tab-schedule .sub-tab-content {
+			background: transparent;
+			padding: 0;
+		}
+		.left-panel-tabs {
+			display: flex;
+			gap: 8px;
+			margin-bottom: 16px;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+		}
+		.tab-button {
+			padding: 12px 20px;
+			background: rgba(255,255,255,0.6);
+			border: none;
+			border-bottom: 3px solid transparent;
+			color: #64748b;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all 0.3s;
+			font-size: 14px;
+			text-transform: none;
+			box-shadow: none;
+			letter-spacing: 0.3px;
+			border-top-left-radius: 12px;
+			border-top-right-radius: 12px;
+		}
+		.tab-button:hover {
+			background: rgba(255,255,255,0.9);
+			color: #1a202c;
+			transform: translateY(-2px);
+		}
+		.tab-button.active {
+			border-bottom-color: #64748b;
+			color: #334155;
+			background: rgba(255,255,255,0.95);
+			box-shadow: 0 4px 12px rgba(100, 116, 139, 0.2);
+		}
+		.tab-content {
+			display: none;
+		}
+		.tab-content.active {
+			display: block;
+		}
+		.collapsible-section {
+			margin-bottom: 16px;
+			border: none;
+			border-radius: 16px;
+			overflow: hidden;
+			background: rgba(255,255,255,0.95);
+			backdrop-filter: blur(20px);
+			box-shadow: 0 8px 32px rgba(0,0,0,0.1), 0 0 0 1px rgba(148, 163, 184, 0.2) inset;
+			transition: all 0.3s;
+		}
+		.collapsible-section:hover {
+			box-shadow: 0 12px 40px rgba(100, 116, 139, 0.2), 0 0 0 1px rgba(148, 163, 184, 0.3) inset;
+		}
+		.collapsible-header {
+			padding: 16px 20px;
+			background: rgba(148, 163, 184, 0.1);
+			cursor: pointer;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			user-select: none;
+			transition: all 0.3s;
+		}
+		.collapsible-header:hover {
+			background: rgba(148, 163, 184, 0.15);
+		}
+		.collapsible-header h3 {
+			margin: 0;
+			font-size: 18px;
+			font-weight: 600;
+			color: #1a202c;
+		}
+		.collapsible-icon {
+			font-size: 18px;
+			transition: transform 0.3s;
+			color: #475569;
+			font-weight: bold;
+		}
+		.collapsible-section.collapsed .collapsible-icon {
+			transform: rotate(-90deg);
+		}
+		.collapsible-content {
+			padding: 20px;
+			background: rgba(255, 255, 255, 0.5);
+		}
+		.collapsible-section.collapsed .collapsible-content {
+			display: none;
+		}
+		.panel {
+			background: rgba(255, 255, 255, 0.98);
+			border: none;
+			border-radius: 24px;
+			padding: 32px;
+			box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;
+			backdrop-filter: blur(20px);
+		}
+		.panel h2 {
+			margin: 0 0 24px;
+			font-family: 'Playfair Display', serif;
+			font-size: 32px;
+			font-weight: 700;
+			color: #1e293b;
+			padding-bottom: 16px;
+			border-bottom: 3px solid #475569;
+		}
+		.panel h3 {
+			margin: 24px 0 16px;
+			font-family: 'Playfair Display', serif;
+			font-size: 20px;
+			font-weight: 600;
+			color: #2d1b2d;
+			letter-spacing: 0.5px;
+		}
+		label {
+			display: block;
+			font-weight: 600;
+			margin-top: 16px;
+			color: #334155;
+			font-size: 14px;
+			letter-spacing: 0.3px;
+		}
+		input, select {
+			width: 100%;
+			padding: 12px 16px;
+			border: 2px solid rgba(148, 163, 184, 0.3);
+			border-radius: 12px;
+			font-size: 14px;
+			margin-top: 6px;
+			background: rgba(255, 255, 255, 0.95);
+			color: #1a202c;
+			transition: all 0.3s;
+		}
+		input:focus, select:focus {
+			outline: none;
+			border-color: #64748b;
+			box-shadow: 0 0 0 4px rgba(100, 116, 139, 0.1), 0 4px 12px rgba(100, 116, 139, 0.1);
+			background: #fff;
+		}
+		button {
+			padding: 12px 24px;
+			border-radius: 12px;
+			border: none;
+			background: linear-gradient(135deg, #475569 0%, #334155 100%);
+			color: #fff;
+			cursor: pointer;
+			font-weight: 600;
+			font-size: 14px;
+			letter-spacing: 0.3px;
+			transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+			box-shadow: 0 4px 15px rgba(71, 85, 105, 0.3);
+			text-transform: none;
+		}
+		button:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 8px 25px rgba(71, 85, 105, 0.4);
+			background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+		}
+		button:active {
+			transform: translateY(0);
+		}
+		button:active {
+			transform: translateY(0);
+		}
+		button.secondary {
+			background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
+			color: #1a202c;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+			border: 2px solid rgba(148, 163, 184, 0.3);
+		}
+		button.secondary:hover {
+			background: #fff;
+			box-shadow: 0 6px 20px rgba(100, 116, 139, 0.2);
+			border-color: rgba(100, 116, 139, 0.5);
+		}
+		button:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+		#timeline {
+			height: 700px;
+			border-radius: 8px;
+			overflow: hidden;
+			background: #fff;
+		}
+		.gantt-container {
+			position: relative;
+		}
+		.gantt-controls {
+			display: flex;
+			gap: 10px;
+			margin-bottom: 12px;
+			flex-wrap: wrap;
+			align-items: center;
+		}
+		.gantt-controls button {
+			padding: 6px 12px;
+			font-size: 13px;
+		}
+		.gantt-legend {
+			display: flex;
+			gap: 16px;
+			margin-bottom: 12px;
+			padding: 16px;
+			background: rgba(255, 255, 255, 0.7);
+			border: 1px solid rgba(15, 23, 42, 0.12);
+			border-radius: 14px;
+			flex-wrap: wrap;
+			box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+		}
+		.legend-item {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-size: 13px;
+		}
+		.legend-color {
+			width: 20px;
+			height: 20px;
+			border-radius: 4px;
+			border: 1px solid rgba(0,0,0,0.1);
+		}
+		.row {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+		}
+		.small {
+			font-size: 12px;
+			color: #6b5b73;
+			font-style: italic;
+		}
+		.status {
+			margin-top: 16px;
+			padding: 16px;
+			border-radius: 12px;
+			font-size: 14px;
+			background: rgba(148, 163, 184, 0.1);
+			border: 2px solid rgba(148, 163, 184, 0.3);
+			color: #1a202c;
+			font-weight: 500;
+		}
+		.status.error {
+			background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%);
+			border-color: rgba(239, 68, 68, 0.3);
+			color: #991b1b;
+		}
+		.status.success {
+			background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.1) 100%);
+			border-color: rgba(34, 197, 94, 0.3);
+			color: #15803d;
+		}
+		.empty-state {
+			text-align: center;
+			padding: 60px 20px;
+			color: #a0aec0;
+		}
+		.empty-state::before {
+			content: '📅';
+			font-size: 48px;
+			display: block;
+			margin-bottom: 12px;
+		}
+		/* Переключение видов */
+		.view-switcher {
+			display: flex;
+			gap: 8px;
+		}
+		.view-btn {
+			padding: 10px 20px;
+			font-size: 14px;
+			border: 2px solid rgba(148, 163, 184, 0.3);
+			background: rgba(255, 255, 255, 0.9);
+			color: #64748b;
+			border-radius: 10px;
+			font-weight: 600;
+			transition: all 0.3s;
+			cursor: pointer;
+		}
+		.view-btn:hover {
+			background: rgba(255, 255, 255, 1);
+			color: #1a202c;
+			border-color: rgba(100, 116, 139, 0.5);
+		}
+		.view-btn.active {
+			background: linear-gradient(135deg, #475569 0%, #334155 100%);
+			color: #fff;
+			border-color: transparent;
+			box-shadow: 0 4px 15px rgba(71, 85, 105, 0.3);
+		}
+		.schedule-view {
+			min-height: 500px;
+		}
+
+		/* Календарный вид */
+		.calendar-controls {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			margin-bottom: 16px;
+		}
+		.calendar-controls button {
+			padding: 8px 16px;
+		}
+		.calendars-container {
+			display: flex;
+			flex-direction: column;
+			gap: 24px;
+		}
+		.stage-calendar {
+			margin-bottom: 24px;
+		}
+		.stage-calendar-title {
+			font-family: 'Playfair Display', serif;
+			font-size: 20px;
+			font-weight: 600;
+			color: #1a0a1a;
+			margin-bottom: 16px;
+			padding: 12px 16px;
+			border-radius: 8px;
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			background: rgba(255, 255, 255, 0.7);
+			border: 2px solid rgba(184, 0, 42, 0.2);
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		}
+		.stage-calendar-title span {
+			flex: 1;
+		}
+		.stage-calendar-color {
+			width: 24px;
+			height: 24px;
+			border-radius: 4px;
+			border: 2px solid rgba(0, 0, 0, 0.1);
+		}
+		.calendar-grid {
+			display: grid;
+			grid-template-columns: repeat(7, 1fr);
+			gap: 8px;
+		}
+		.calendar-day {
+			min-height: 80px;
+			padding: 8px;
+			border: 1px solid rgba(15, 23, 42, 0.12);
+			border-radius: 12px;
+			background: rgba(255, 255, 255, 0.95);
+			transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+			box-shadow: 0 2px 8px rgba(2,6,23,0.06);
+		}
+		.calendar-day:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 6px 18px rgba(2,6,23,0.12);
+		}
+		.calendar-day.weekend {
+			background: rgba(99, 102, 241, 0.06);
+			border-color: rgba(99, 102, 241, 0.15);
+		}
+		.calendar-day-header {
+			font-weight: 600;
+			font-size: 13px;
+			margin-bottom: 8px;
+			color: #334155;
+			font-family: 'Playfair Display', serif;
+		}
+		.calendar-day-number {
+			font-size: 18px;
+			font-weight: 700;
+			color: #0f172a;
+			font-family: 'Playfair Display', serif;
+		}
+		.calendar-event {
+			margin-top: 4px;
+			padding: 6px 8px;
+			border-radius: 8px;
+			font-size: 11px;
+			font-weight: 500;
+			color: #fff;
+			cursor: pointer;
+			transition: transform 0.2s, box-shadow 0.2s;
+			box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+		}
+		.calendar-event:hover {
+			transform: translateX(2px);
+			box-shadow: 0 10px 20px rgba(0,0,0,0.22);
+		}
+		.calendar-event-time {
+			font-size: 11px;
+			opacity: 0.9;
+			margin-bottom: 2px;
+		}
+		.calendar-event-title {
+			font-weight: 600;
+		}
+		.calendar-event-stage {
+			font-size: 10px;
+			opacity: 0.8;
+			margin-top: 2px;
+		}
+		.calendar-event.fixed {
+			border: 2px solid rgba(255,255,255,0.9);
+			box-shadow: 0 0 0 2px rgba(255,255,255,0.6) inset, 0 10px 22px rgba(0,0,0,0.25);
+			position: relative;
+		}
+		.calendar-event.fixed::after {
+			content: '📌';
+			position: absolute;
+			top: 2px;
+			right: 4px;
+			font-size: 10px;
+		}
+		.calendar-day.clickable {
+			cursor: pointer;
+		}
+		.calendar-day.clickable:hover {
+			background: rgba(184, 0, 42, 0.05);
+		}
+		.calendar-event.empty-slot {
+			opacity: 0.7;
+		}
+		.calendar-event.empty-slot:hover {
+			opacity: 1;
+			background: rgba(128, 128, 128, 0.15) !important;
+		}
+		.calendar-event {
+			position: relative;
+		}
+		.calendar-event.draggable {
+			cursor: move;
+		}
+		.calendar-event.draggable:hover {
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+		}
+		.calendar-event.droppable.drag-over {
+			background: rgba(184, 0, 42, 0.2) !important;
+			border-color: #b8002a !important;
+		}
+		.stage-calendar-tabs {
+			display: flex;
+			gap: 8px;
+			margin-bottom: 16px;
+			border-bottom: 2px solid rgba(184, 0, 42, 0.2);
+		}
+		.stage-calendar-tab {
+			padding: 10px 20px;
+			background: transparent;
+			border: none;
+			border-bottom: 3px solid transparent;
+			cursor: pointer;
+			font-weight: 600;
+			color: #666;
+			transition: all 0.3s;
+			font-family: 'Playfair Display', serif;
+		}
+		.stage-calendar-tab:hover {
+			color: #1a0a1a;
+			background: rgba(184, 0, 42, 0.05);
+		}
+		.stage-calendar-tab.active {
+			border-bottom-color: #b8002a;
+			color: #1a0a1a;
+		}
+
+		/* Табличный вид */
+		.table-container {
+			max-height: 600px;
+			overflow-y: auto;
+			border-radius: 8px;
+			border: 1px solid #e2e8f0;
+		}
+		.schedule-table {
+			width: 100%;
+			border-collapse: collapse;
+			background: #fff;
+		}
+		.schedule-table thead {
+			background: linear-gradient(135deg, rgba(184, 0, 42, 0.1) 0%, rgba(212, 175, 55, 0.1) 100%);
+			position: sticky;
+			top: 0;
+			z-index: 10;
+		}
+		.schedule-table th {
+			padding: 8px 10px;
+			text-align: left;
+			font-weight: 600;
+			color: #1a0a1a;
+			border-bottom: 3px solid #d4af37;
+			font-family: 'Playfair Display', serif;
+			font-size: 14px;
+		}
+		.schedule-table td {
+			padding: 8px 10px;
+			border-bottom: 1px solid rgba(184, 0, 42, 0.1);
+			color: #2d1b2d;
+			font-size: 13px;
+		}
+		.schedule-table tbody tr:hover {
+			background: rgba(212, 175, 55, 0.08);
+		}
+		.table-production {
+			display: inline-block;
+			padding: 4px 10px;
+			border-radius: 6px;
+			font-weight: 500;
+			font-size: 13px;
+			color: #fff;
+		}
+
+		/* Стили для vis-timeline */
+		.vis-timeline {
+			border: none;
+		}
+		.vis-item {
+			border-radius: 6px;
+			font-weight: 500;
+			font-size: 13px;
+		}
+		.vis-item.vis-selected {
+			box-shadow: 0 0 0 2px #4299e1;
+		}
+
+		/* Стили для чекбоксов ограничений */
+		input[type="checkbox"] {
+			width: 18px;
+			height: 18px;
+			cursor: pointer;
+			accent-color: #475569;
+			border: 2px solid rgba(100, 116, 139, 0.3);
+			border-radius: 4px;
+		}
+		input[type="checkbox"]:checked {
+			background-color: #64748b;
+			border-color: #64748b;
+		}
+		input[type="checkbox"]:focus {
+			outline: 2px solid rgba(100, 116, 139, 0.3);
+			outline-offset: 2px;
+		}
+		#constraintsPanel label {
+			padding: 10px 12px;
+			border-radius: 8px;
+			transition: background-color 0.2s;
+			margin: 0;
+		}
+		#constraintsPanel label:hover {
+			background-color: rgba(148, 163, 184, 0.1);
+		}
+		#constraintsPanel strong {
+			font-family: 'Playfair Display', serif;
+			color: #1a0a1a;
+		}
+		
+		/* Стили для модального окна назначений */
+		#assignmentsModal {
+			display: none;
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0, 0, 0, 0.6);
+			z-index: 1000;
+			align-items: center;
+			justify-content: center;
+			backdrop-filter: blur(8px);
+		}
+		#assignmentsModal > div {
+			background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.95) 100%);
+			border-radius: 24px;
+			padding: 32px;
+			max-width: 800px;
+			width: 90%;
+			max-height: 85vh;
+			overflow-y: auto;
+			box-shadow: 0 25px 70px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;
+			position: relative;
+		}
+		#closeAssignmentsModal {
+			position: absolute;
+			top: 16px;
+			right: 16px;
+			background: linear-gradient(135deg, #475569 0%, #334155 100%);
+			border: none;
+			border-radius: 50%;
+			width: 36px;
+			height: 36px;
+			cursor: pointer;
+			font-size: 20px;
+			line-height: 1;
+			color: white;
+			transition: all 0.3s;
+			box-shadow: 0 4px 12px rgba(71, 85, 105, 0.3);
+		}
+		#closeAssignmentsModal:hover {
+			transform: rotate(90deg) scale(1.1);
+			box-shadow: 0 6px 20px rgba(71, 85, 105, 0.4);
+		}
+		.modal-assignment-select {
+			padding: 8px 12px;
+			border: 2px solid rgba(148, 163, 184, 0.3);
+			border-radius: 8px;
+			font-size: 14px;
+			background: white;
+			transition: all 0.3s;
+		}
+		.modal-assignment-select:focus {
+			outline: none;
+			border-color: #64748b;
+			box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.1);
+		}
+		.modal-update-btn {
+			padding: 8px 16px;
+			background: linear-gradient(135deg, #475569 0%, #334155 100%);
+			color: white;
+			border: none;
+			border-radius: 8px;
+			cursor: pointer;
+			font-size: 13px;
+			font-weight: 600;
+			transition: all 0.3s;
+			box-shadow: 0 4px 12px rgba(71, 85, 105, 0.3);
+		}
+		.modal-update-btn:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 6px 20px rgba(71, 85, 105, 0.4);
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div class="panel">
+			<h2>Планировщик расписания</h2>
+			
+			<!-- Основные вкладки -->
+			<div class="main-tabs">
+				<button class="main-tab-button active" data-main-tab="planner">📋 Планировщик расписания</button>
+				<button class="main-tab-button" data-main-tab="schedule">📅 Расписание</button>
+			</div>
+
+			<!-- Вкладка "Планировщик расписания" -->
+			<div id="main-tab-planner" class="main-tab-content active">
+				<!-- Подвкладки -->
+				<div class="sub-tabs">
+					<button class="sub-tab-button active" data-sub-tab="productions">🎭 Постановки</button>
+					<button class="sub-tab-button" data-sub-tab="stages">🏛️ Сцены</button>
+					<button class="sub-tab-button" data-sub-tab="timeslots">⏰ Таймслоты</button>
+					<button class="sub-tab-button" data-sub-tab="people">👥 Люди</button>
+					<button class="sub-tab-button" data-sub-tab="roles">🎪 Роли</button>
+					<button class="sub-tab-button" data-sub-tab="person-roles">🔗 Назначения ролей</button>
+					<button class="sub-tab-button" data-sub-tab="constraints">⚙️ Ограничения</button>
+					<button class="sub-tab-button" data-sub-tab="actions">▶️ Действия</button>
+				</div>
+
+				<!-- Подвкладка "Постановки" -->
+				<div id="sub-tab-productions" class="sub-tab-content active">
+					<div style="max-height: calc(100vh - 400px); overflow-y: auto;">
+						<div id="productionsList" style="margin-bottom: 12px;"></div>
+						<button id="addProduction" style="width: 100%;">+ Добавить постановку</button>
+					</div>
+				</div>
+
+				<!-- Подвкладка "Сцены" -->
+				<div id="sub-tab-stages" class="sub-tab-content">
+					<div style="max-height: calc(100vh - 400px); overflow-y: auto;">
+						<div id="stagesList"></div>
+						<button id="addStage" style="width: 100%; margin-top: 12px;">+ Добавить сцену</button>
+					</div>
+				</div>
+
+				<!-- Подвкладка "Таймслоты" -->
+				<div id="sub-tab-timeslots" class="sub-tab-content">
+					<div style="max-height: calc(100vh - 400px); overflow-y: auto;">
+						<div id="timeslotsList"></div>
+						<div class="small" style="margin-top: 12px;">Для каждого таймслота укажите сцену, дату и время начала</div>
+					</div>
+				</div>
+
+				<!-- Подвкладка "Люди" -->
+				<div id="sub-tab-people" class="sub-tab-content">
+					<div style="max-height: calc(100vh - 400px); overflow-y: auto;">
+						<div id="peopleList" style="margin-bottom: 12px;"></div>
+						<button id="addPerson" style="width: 100%;">+ Добавить человека</button>
+					</div>
+				</div>
+
+				<!-- Подвкладка "Роли" -->
+				<div id="sub-tab-roles" class="sub-tab-content">
+					<div style="max-height: calc(100vh - 400px); overflow-y: auto;">
+						<div id="rolesList" style="margin-bottom: 12px;"></div>
+						<button id="addRole" style="width: 100%;">+ Добавить роль</button>
+					</div>
+				</div>
+
+				<!-- Подвкладка "Назначения ролей" -->
+				<div id="sub-tab-person-roles" class="sub-tab-content">
+					<div style="max-height: calc(100vh - 400px); overflow-y: auto;">
+						<div id="personProductionRolesList" style="margin-bottom: 12px;"></div>
+						<div class="small" style="margin-top: 12px;">Укажите, кто может играть какую роль в каком спектакле</div>
+					</div>
+				</div>
+
+				<!-- Подвкладка "Ограничения" -->
+				<div id="sub-tab-constraints" class="sub-tab-content">
+					<div id="constraintsPanel">
+						<div style="margin-bottom: 20px;">
+							<strong style="color: #2d1b2d; font-size: 16px; display: block; margin-bottom: 12px; font-family: 'Playfair Display', serif;">Жёсткие ограничения:</strong>
+							<div style="display: flex; flex-direction: column; gap: 8px;">
+								<!-- Скрытые ограничения, которые всегда включены -->
+								<input type="checkbox" id="constraint_one_production_per_timeslot" checked style="display: none;">
+								<input type="checkbox" id="constraint_exact_shows_count" checked style="display: none;">
+								<label style="display: flex; align-items: center; cursor: pointer;">
+									<input type="checkbox" id="constraint_consecutive_shows" checked style="width: auto; margin-right: 8px; margin-top: 0;">
+									<span>Все показы одного спектакля должны идти подряд</span>
+								</label>
+								<label style="display: flex; align-items: center; cursor: pointer;">
+									<input type="checkbox" id="constraint_monday_off" checked style="width: auto; margin-right: 8px; margin-top: 0;">
+									<span>Понедельник — выходной день</span>
+								</label>
+								<label style="display: flex; align-items: center; cursor: pointer;">
+									<input type="checkbox" id="constraint_weekend_always_show" checked style="width: auto; margin-right: 8px; margin-top: 0;">
+									<span>В выходные всегда должен быть спектакль</span>
+								</label>
+							</div>
+						</div>
+						<div>
+							<strong style="color: #2d1b2d; font-size: 16px; display: block; margin-bottom: 12px; font-family: 'Playfair Display', serif;">Мягкие ограничения:</strong>
+							<div style="display: flex; flex-direction: column; gap: 8px;">
+								<label style="display: flex; align-items: center; cursor: pointer;">
+									<input type="checkbox" id="constraint_break_between_different_shows" checked style="width: auto; margin-right: 8px; margin-top: 0;">
+									<span>Перерыв между разными спектаклями</span>
+								</label>
+								<label style="display: flex; align-items: center; cursor: pointer;">
+									<input type="checkbox" id="constraint_weekend_priority_bonus" checked style="width: auto; margin-right: 8px; margin-top: 0;">
+									<span>Бонус для спектаклей с приоритетом на выходные</span>
+								</label>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Подвкладка "Действия" -->
+				<div id="sub-tab-actions" class="sub-tab-content">
+					<div style="display: flex; flex-direction: column; gap: 16px;">
+						<div style="padding: 12px; background: rgba(255,255,255,0.5); border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.3);">
+							<label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a202c;">API Base URL:</label>
+							<input type="text" id="apiBaseUrlInput" placeholder="https://your-api.onrender.com" style="width: 100%; padding: 8px 12px; border: 2px solid rgba(148, 163, 184, 0.3); border-radius: 6px; font-size: 14px; margin-bottom: 8px;">
+							<button id="btnSaveApiUrl" style="width: 100%; padding: 8px; background: linear-gradient(135deg, #475569 0%, #334155 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Сохранить API URL</button>
+							<div class="small" style="margin-top: 8px;">Укажите URL вашего API сервера (например, https://your-api.onrender.com)</div>
+						</div>
+						<div>
+							<button id="btnCreate" style="width: 100%; margin-bottom: 12px;">Создать сценарий</button>
+							<div class="small">Создаёт сценарий на основе текущих данных</div>
+						</div>
+						<div>
+							<button id="btnSolve" class="secondary" style="width: 100%; margin-bottom: 12px;">Составить расписание</button>
+							<div class="small">Запускает оптимизацию с учётом включённых ограничений</div>
+						</div>
+						<div>
+							<button id="btnClearSchedule" style="width: 100%; margin-bottom: 12px; background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);">Очистить расписание</button>
+							<div class="small">Полностью очищает расписание: убирает все спектакли, восстанавливает таймслоты, удаляет закрепления</div>
+						</div>
+						<div class="status" id="status" style="margin-top: 8px;"></div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Вкладка "Расписание" -->
+			<div id="main-tab-schedule" class="main-tab-content">
+				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+					<h3 style="margin: 0; font-family: 'Playfair Display', serif; color: #1a202c;">Просмотр расписания</h3>
+					<div class="view-switcher">
+						<button id="btnViewCalendar" class="view-btn active" data-view="calendar">📅 Календарь</button>
+						<button id="btnViewTable" class="view-btn" data-view="table">📋 Таблица</button>
+						<button id="btnViewAssignments" class="view-btn" data-view="assignments">👥 Назначения</button>
+					</div>
+				</div>
+
+				<!-- Календарный вид -->
+				<div id="calendarView" class="schedule-view">
+					<div id="calendarControls" class="calendar-controls">
+						<button id="btnPrevMonth">← Предыдущий месяц</button>
+						<h3 id="calendarMonth" style="margin: 0; flex: 1; text-align: center;"></h3>
+						<button id="btnNextMonth">Следующий месяц →</button>
+					</div>
+					<div style="padding: 12px; background: rgba(212, 175, 55, 0.1); border: 2px solid rgba(212, 175, 55, 0.2); border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: #2d1b2d;">
+						<strong>💡 Подсказка:</strong> Все доступные таймслоты отображаются в календаре. Нажмите на таймслот (даже пустой, отмечен как "Свободно") или на ячейку календаря, чтобы закрепить спектакль. Закреплённые спектакли (отмечены 📌) будут учтены при составлении расписания.
+					</div>
+					<div id="calendarsContainer"></div>
+				</div>
+
+				<!-- Табличный вид -->
+				<div id="tableView" class="schedule-view" style="display: none;">
+					<div class="table-container">
+						<table id="scheduleTable" class="schedule-table">
+							<thead>
+								<tr>
+									<th>Дата</th>
+									<th>Время</th>
+									<th>Сцена</th>
+									<th>Спектакль</th>
+									<th>Назначения</th>
+								</tr>
+							</thead>
+							<tbody></tbody>
+						</table>
+					</div>
+				</div>
+
+				<!-- Вид назначений -->
+				<div id="assignmentsView" class="schedule-view" style="display: none;">
+					<div class="table-container">
+						<table id="assignmentsTable" class="schedule-table">
+							<thead>
+								<tr>
+									<th>Дата</th>
+									<th>Время</th>
+									<th>Сцена</th>
+									<th>Спектакль</th>
+									<th>Роль</th>
+									<th>Человек</th>
+									<th>Действия</th>
+								</tr>
+							</thead>
+							<tbody></tbody>
+						</table>
+					</div>
+				</div>
+
+				<div id="emptyState" class="empty-state">
+					Создайте сценарий и составьте расписание, чтобы увидеть расписание
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Модальное окно для просмотра назначений -->
+	<div id="assignmentsModal">
+		<div>
+			<button id="closeAssignmentsModal">×</button>
+			<h2 style="margin: 0 0 20px; font-family: 'Playfair Display', serif; color: #0f172a; border-bottom: 3px solid #d4af37; padding-bottom: 12px;">Назначения на спектакль</h2>
+			<div id="assignmentsModalContent"></div>
+		</div>
+	</div>
+
+	<script>
+		// Управление основными вкладками
+		document.querySelectorAll('.main-tab-button').forEach(button => {
+			button.addEventListener('click', () => {
+				const tabName = button.dataset.mainTab;
+				
+				// Убираем активный класс у всех кнопок и контента
+				document.querySelectorAll('.main-tab-button').forEach(btn => btn.classList.remove('active'));
+				document.querySelectorAll('.main-tab-content').forEach(content => content.classList.remove('active'));
+				
+				// Добавляем активный класс выбранной вкладке
+				button.classList.add('active');
+				document.getElementById(`main-tab-${tabName}`).classList.add('active');
+			});
+		});
+
+		// Управление подвкладками
+		document.querySelectorAll('.sub-tab-button').forEach(button => {
+			button.addEventListener('click', () => {
+				const tabName = button.dataset.subTab;
+				
+				// Убираем активный класс у всех кнопок и контента
+				document.querySelectorAll('.sub-tab-button').forEach(btn => btn.classList.remove('active'));
+				document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
+				
+				// Добавляем активный класс выбранной вкладке
+				button.classList.add('active');
+				document.getElementById(`sub-tab-${tabName}`).classList.add('active');
+			});
+		});
+
+		// Управление сворачиваемыми секциями (если еще используются)
+		function toggleSection(header) {
+			const section = header.parentElement;
+			section.classList.toggle('collapsed');
+		}
+	</script>
+	<script src="app.js"></script>
+</body>
+</html>
+
+
