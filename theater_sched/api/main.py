@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
+import pytz
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+# Московский часовой пояс
+MOSCOW_TZ = pytz.timezone('Europe/Moscow')
 
 from theater_sched.repositories.memory import InMemoryRepository
 from theater_sched.services.scenarios import ScenarioService
@@ -223,11 +227,15 @@ def scenario_gantt(scenario_id: str) -> Dict:
         stages_by_id = {st.id: st for st in s.stages}
 
         def to_iso(date_str: str, hm: str | None, fallback_hm: str = "19:00") -> str:
-            # Форматируем время правильно для datetime.fromisoformat
+            # Форматируем время правильно для datetime.fromisoformat в московском времени
             time_str = (hm or fallback_hm).strip()
             if len(time_str) == 5:  # "HH:MM"
                 time_str = f"{time_str}:00"  # Преобразуем в "HH:MM:SS"
-            return f"{date_str}T{time_str}"
+            # Создаем naive datetime и локализуем в московское время
+            naive_dt = datetime.fromisoformat(f"{date_str}T{time_str}")
+            moscow_dt = MOSCOW_TZ.localize(naive_dt)
+            # Возвращаем в ISO формате (с часовым поясом)
+            return moscow_dt.isoformat()
 
         tasks = []
         for item in schedule_data.get("schedule", []):
@@ -238,9 +246,15 @@ def scenario_gantt(scenario_id: str) -> Dict:
             start_iso = to_iso(tslot.date, tslot.start_time)
             # Для визуализации используем фиксированную длительность (3 часа)
             try:
+                # Парсим дату в московском времени (to_iso уже возвращает datetime с часовым поясом)
                 start_dt = datetime.fromisoformat(start_iso)
+                # Если datetime naive (не должно быть, но на всякий случай), локализуем в московское время
+                if start_dt.tzinfo is None:
+                    start_dt = MOSCOW_TZ.localize(start_dt)
+                # Добавляем 3 часа
                 end_dt = start_dt + timedelta(hours=3)
-                end_iso = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
+                # Форматируем в ISO с часовым поясом
+                end_iso = end_dt.isoformat()
             except (ValueError, TypeError) as e:
                 # Если не удалось распарсить время, пропускаем этот элемент
                 continue

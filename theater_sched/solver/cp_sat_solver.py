@@ -161,13 +161,26 @@ class MinimalCPSATSolver:
 
 		# Группируем выходные слоты по неделе (год + номер недели) и сцене (для бонусов и вспомогательной логики)
 		from datetime import datetime
+		import pytz
+		
+		# Московский часовой пояс
+		MOSCOW_TZ = pytz.timezone('Europe/Moscow')
 		
 		def get_week_key(date_str: str) -> str:
-			"""Возвращает ключ недели (год-неделя) для группировки субботы и воскресенья."""
+			"""Возвращает ключ недели (год-неделя) для группировки субботы и воскресенья в московском времени."""
 			try:
-				d = datetime.fromisoformat(date_str)
-				# Используем ISO week: (год, номер недели)
-				iso_year, iso_week, _ = d.isocalendar()
+				# Парсим дату в формате YYYY-MM-DD (без времени)
+				if len(date_str) == 10 and date_str.count('-') == 2:
+					# Формат YYYY-MM-DD - создаем дату в московском времени (полночь)
+					naive_dt = datetime.fromisoformat(date_str)
+					# Локализуем в московское время
+					moscow_dt = MOSCOW_TZ.localize(naive_dt)
+				else:
+					# Если есть время, берем только дату
+					naive_dt = datetime.fromisoformat(date_str.split('T')[0])
+					moscow_dt = MOSCOW_TZ.localize(naive_dt)
+				# Используем ISO week в московском времени: (год, номер недели)
+				iso_year, iso_week, _ = moscow_dt.isocalendar()
 				return f"{iso_year}-W{iso_week:02d}"
 			except (ValueError, AttributeError):
 				# Если не удалось распарсить дату, используем дату как ключ

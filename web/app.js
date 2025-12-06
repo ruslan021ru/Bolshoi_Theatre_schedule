@@ -1,6 +1,43 @@
 // Простой веб-клиент: создаёт сценарий, запускает решатель и рисует Гантт
 
 (function () {
+    // Московский часовой пояс (UTC+3)
+    const MOSCOW_TIMEZONE_OFFSET = 3; // Часов смещения от UTC
+    
+    // Функция для создания даты в московском времени
+    function createMoscowDate(year, month, day, hours = 0, minutes = 0) {
+        // Создаем дату в UTC, вычитая смещение Москвы
+        // Например, 00:00 по Москве = 21:00 предыдущего дня UTC
+        const utcHours = hours - MOSCOW_TIMEZONE_OFFSET;
+        let utcDate = new Date(Date.UTC(year, month, day, utcHours, minutes));
+        // Если часы стали отрицательными, нужно скорректировать день
+        if (utcHours < 0) {
+            utcDate = new Date(Date.UTC(year, month, day - 1, 24 + utcHours, minutes));
+        }
+        return utcDate;
+    }
+    
+    // Функция для получения дня недели в московском времени
+    function getMoscowDayOfWeek(dateStr) {
+        // Парсим дату в формате YYYY-MM-DD
+        const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (!match) return 0;
+        
+        const year = parseInt(match[1], 10);
+        const month = parseInt(match[2], 10) - 1; // месяц 0-11
+        const day = parseInt(match[3], 10);
+        
+        // Для правильного вычисления дня недели используем полдень по Москве
+        // 12:00 MSK = 09:00 UTC (так как Москва UTC+3)
+        // Это гарантирует, что мы всегда получим правильный день недели для этой даты в Москве
+        // даже если UTC дата сдвинется на предыдущий день
+        const utcHours = 12 - MOSCOW_TIMEZONE_OFFSET; // 12 - 3 = 9 (09:00 UTC)
+        const moscowDate = new Date(Date.UTC(year, month, day, utcHours, 0));
+        const jsDow = moscowDate.getUTCDay();
+        // Преобразуем: 0=ВС->6, 1=ПН->0, 2=ВТ->1, ..., 6=СБ->5
+        return jsDow === 0 ? 6 : jsDow - 1;
+    }
+    
     // Получаем API URL из localStorage или используем значение по умолчанию
     function getApiBaseUrl() {
         const saved = localStorage.getItem('api_base_url');
@@ -760,17 +797,17 @@
 
     // Генерация месячного календаря
     function generateMonthCalendar(year, month) {
-        const firstDay = new Date(year, month - 1, 1);
-        const lastDay = new Date(year, month, 0);
-        const daysInMonth = lastDay.getDate();
+        // Используем московское время для всех вычислений
+        const firstDay = createMoscowDate(year, month - 1, 1);
+        const lastDay = createMoscowDate(year, month, 0);
+        const daysInMonth = lastDay.getUTCDate();
         const slots = [];
         let slotId = 1;
         
         for (let day = 1; day <= daysInMonth; day++) {
-            const date = new Date(year, month - 1, day);
-            const jsDow = date.getDay();
-            const dow = jsDow === 0 ? 6 : jsDow - 1;
+            // Вычисляем день недели в московском времени
             const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dow = getMoscowDayOfWeek(dateStr);
             
             // Создаём отдельные таймслоты для каждой сцены
             state.stages.forEach(stage => {
@@ -2595,17 +2632,11 @@
             timeslots: state.timeslots
                 .filter(t => t.stage_id && t.date) // Фильтруем неполные таймслоты
                 .map((t, index) => {
-                    // Вычисляем day_of_week из даты
+                    // Вычисляем day_of_week из даты в московском времени
                     let dow = 0;
                     if (t.date) {
                         try {
-                            const d = new Date(t.date);
-                            if (isNaN(d.getTime())) {
-                                console.warn('Некорректная дата:', t.date);
-                                return null;
-                            }
-                            const jsDow = d.getDay();
-                            dow = jsDow === 0 ? 6 : jsDow - 1;
+                            dow = getMoscowDayOfWeek(t.date);
                         } catch (e) {
                             console.warn('Ошибка при обработке даты:', t.date, e);
                             return null;
@@ -2618,9 +2649,20 @@
                     let formattedDate = t.date;
                     if (t.date) {
                         try {
-                            const d = new Date(t.date);
-                            if (!isNaN(d.getTime())) {
-                                formattedDate = d.toISOString().split('T')[0];
+                            const dateStr = t.date.trim();
+                            const dateMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                            if (dateMatch) {
+                                // Если уже в правильном формате, используем как есть
+                                formattedDate = dateMatch[0];
+                            } else {
+                                // Иначе парсим и форматируем
+                                const d = new Date(t.date);
+                                if (!isNaN(d.getTime())) {
+                                    const year = d.getFullYear();
+                                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                                    const day = String(d.getDate()).padStart(2, '0');
+                                    formattedDate = `${year}-${month}-${day}`;
+                                }
                             }
                         } catch (e) {
                             console.warn('Ошибка форматирования даты:', t.date, e);
@@ -2825,18 +2867,52 @@
         return colorMap;
     }
 
-    // Форматируем время для отображения
+    // Форматируем время для отображения (в московском времени)
     function formatTime(isoStr) {
+        // Парсим ISO строку и конвертируем в московское время
         const d = new Date(isoStr);
-        const hours = String(d.getHours()).padStart(2, '0');
-        const mins = String(d.getMinutes()).padStart(2, '0');
-        return `${hours}:${mins}`;
+        // Если строка в формате YYYY-MM-DDTHH:MM:SS, парсим вручную
+        if (isoStr.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/)) {
+            const match = isoStr.match(/T(\d{2}):(\d{2})/);
+            if (match) {
+                // Проверяем, есть ли информация о часовом поясе в строке
+                const hasTimezone = isoStr.includes('+') || isoStr.includes('-') || isoStr.endsWith('Z');
+                if (hasTimezone) {
+                    // Если есть часовой пояс, используем методы Date для конвертации
+                    const utcHours = d.getUTCHours();
+                    const utcMins = d.getUTCMinutes();
+                    const moscowHours = (utcHours + MOSCOW_TIMEZONE_OFFSET) % 24;
+                    return `${String(moscowHours).padStart(2, '0')}:${String(utcMins).padStart(2, '0')}`;
+                } else {
+                    // Если нет часового пояса, предполагаем что это уже московское время
+                    return `${match[1]}:${match[2]}`;
+                }
+            }
+        }
+        // Fallback: конвертируем UTC время в московское
+        const utcHours = d.getUTCHours();
+        const utcMins = d.getUTCMinutes();
+        const moscowHours = (utcHours + MOSCOW_TIMEZONE_OFFSET) % 24;
+        return `${String(moscowHours).padStart(2, '0')}:${String(utcMins).padStart(2, '0')}`;
     }
 
     function formatDate(isoStr) {
+        // Парсим ISO строку и используем московское время
         const d = new Date(isoStr);
+        // Если строка в формате YYYY-MM-DD, парсим вручную
+        if (isoStr.match(/^\d{4}-\d{2}-\d{2}/)) {
+            const match = isoStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (match) {
+                const year = parseInt(match[1], 10);
+                const month = parseInt(match[2], 10) - 1;
+                const day = parseInt(match[3], 10);
+                const months = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+                return `${day} ${months[month]}`;
+            }
+        }
+        // Fallback: используем UTC дату (так как дата не зависит от времени)
         const months = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-        return `${d.getDate()} ${months[d.getMonth()]}`;
+        return `${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
     }
 
 	// Загрузка расписания из API (заменяет renderGantt)
@@ -3341,12 +3417,14 @@
 				grid.appendChild(header);
 			});
 
-			// Получаем первый день месяца и количество дней
-			const firstDay = new Date(currentYear, currentMonth, 1);
-			const lastDay = new Date(currentYear, currentMonth + 1, 0);
-			const daysInMonth = lastDay.getDate();
-			const startDayOfWeek = firstDay.getDay(); // 0=Sunday, 1=Monday...
-			const startOffset = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1; // Преобразуем: 0=Monday
+			// Получаем первый день месяца и количество дней (используем московское время)
+			const firstDayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+			const firstDayDow = getMoscowDayOfWeek(firstDayStr);
+			const startOffset = firstDayDow; // 0=Monday
+			
+			// Вычисляем количество дней в месяце через московское время
+			const lastDay = createMoscowDate(currentYear, currentMonth + 1, 0);
+			const daysInMonth = lastDay.getUTCDate();
 
 			// Пустые ячейки до начала месяца
 			for (let i = 0; i < startOffset; i++) {
@@ -3355,10 +3433,9 @@
 
 			// Дни месяца
 			for (let day = 1; day <= daysInMonth; day++) {
-				const date = new Date(currentYear, currentMonth, day);
-				const dow = date.getDay();
-				const normalizedDow = dow === 0 ? 6 : dow - 1; // 0=Monday, 6=Sunday
+				// Вычисляем день недели в московском времени
 				const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+				const normalizedDow = getMoscowDayOfWeek(dateStr); // 0=Monday, 6=Sunday
 
 				const dayEl = document.createElement('div');
 				dayEl.className = 'calendar-day';
@@ -3390,8 +3467,15 @@
 				// Находим ВСЕ таймслоты для этого дня и этой сцены
 				const dayTimeslots = state.timeslots.filter(t => {
 					if (!t.date || !t.stage_id) return false;
-					const tDate = new Date(t.date);
-					const tDateStr = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}-${String(tDate.getDate()).padStart(2, '0')}`;
+					// Парсим дату без учета часового пояса
+					const dateMatch = t.date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+					if (dateMatch) {
+						const tDateStr = dateMatch[0];
+						return tDateStr === dateStr && t.stage_id === stageIdFromName;
+					}
+					// Fallback на старый способ (но с UTC)
+					const tDate = new Date(t.date + 'T00:00:00Z'); // Добавляем T00:00:00Z для UTC
+					const tDateStr = `${tDate.getUTCFullYear()}-${String(tDate.getUTCMonth() + 1).padStart(2, '0')}-${String(tDate.getUTCDate()).padStart(2, '0')}`;
 					return tDateStr === dateStr && t.stage_id === stageIdFromName;
 				}).sort((a, b) => {
 					// Сортируем по времени
@@ -4109,8 +4193,15 @@
 			// Проверяем, нет ли уже таймслота с таким временем для этой даты и сцены
 			const existingTimeslot = state.timeslots.find(t => {
 				if (!t.date || !t.stage_id) return false;
-				const tDate = new Date(t.date);
-				const tDateStr = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}-${String(tDate.getDate()).padStart(2, '0')}`;
+				// Парсим дату без учета часового пояса
+				const dateMatch = t.date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+				if (dateMatch) {
+					const tDateStr = dateMatch[0];
+					return tDateStr === dateStr && t.stage_id === stageId && t.start_time === timeValue;
+				}
+				// Fallback
+				const tDate = new Date(t.date + 'T00:00:00Z');
+				const tDateStr = `${tDate.getUTCFullYear()}-${String(tDate.getUTCMonth() + 1).padStart(2, '0')}-${String(tDate.getUTCDate()).padStart(2, '0')}`;
 				return tDateStr === dateStr && t.stage_id === stageId && t.start_time === timeValue;
 			});
 
@@ -4443,8 +4534,12 @@
 			// Исключаем спектакли, которые уже закреплены (чтобы не считать дважды)
 			// Для этого нужно найти таймслот по дате и времени
 			const matchingTimeslot = state.timeslots.find(ts => {
-				const tsDate = new Date(ts.date);
-				const tsDateStr = `${tsDate.getFullYear()}-${String(tsDate.getMonth() + 1).padStart(2, '0')}-${String(tsDate.getDate()).padStart(2, '0')}`;
+				// Парсим дату без учета часового пояса
+				const dateMatch = ts.date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+				const tsDateStr = dateMatch ? dateMatch[0] : (() => {
+					const tsDate = new Date(ts.date + 'T00:00:00Z');
+					return `${tsDate.getUTCFullYear()}-${String(tsDate.getUTCMonth() + 1).padStart(2, '0')}-${String(tsDate.getUTCDate()).padStart(2, '0')}`;
+				})();
 				const tsTime = (ts.start_time || '19:00').substring(0, 5);
 				return tsDateStr === taskDate && tsTime === taskTime && 
 				       (ts.stage_id === fromData.stageId || 
