@@ -11,6 +11,47 @@ from pydantic import BaseModel, Field
 # Московский часовой пояс
 MOSCOW_TZ = pytz.timezone('Europe/Moscow')
 
+
+def _normalize_date_and_dow(date_str: Optional[str], fallback_dow: int = 0) -> tuple[str, int]:
+	"""Приводит дату к московскому времени и возвращает (YYYY-MM-DD, day_of_week)."""
+	if not date_str:
+		return "", fallback_dow
+	try:
+		# Берём только дату без времени, если оно передано
+		base_date_str = date_str.split("T")[0]
+		naive_dt = datetime.fromisoformat(base_date_str)
+		moscow_dt = MOSCOW_TZ.localize(naive_dt)
+		return moscow_dt.date().isoformat(), moscow_dt.weekday()
+	except Exception:
+		# В случае ошибок возвращаем исходную строку и запасной day_of_week
+		return date_str, fallback_dow
+
+
+def _normalize_timeslot(ts: "TimeSlotIn") -> Dict:
+	"""Делает таймслот независимым от таймзоны сервера."""
+	norm_date, norm_dow = _normalize_date_and_dow(ts.date or ts.id, ts.day_of_week or 0)
+	start_time = (ts.start_time or "19:00").strip() or "19:00"
+	return {
+		"id": ts.id,
+		"stage_id": ts.stage_id,
+		"date": norm_date,
+		"day_of_week": norm_dow,
+		"start_time": start_time,
+	}
+
+
+def _normalize_fixed_assignment(fa: "FixedAssignmentIn") -> Dict:
+	"""Нормализует закреплённые показы (дата/время в МСК)."""
+	norm_date, _ = _normalize_date_and_dow(fa.date, 0)
+	start_time = (fa.start_time or "19:00").strip() or "19:00"
+	return {
+		"production_id": fa.production_id,
+		"timeslot_id": fa.timeslot_id,
+		"stage_id": fa.stage_id,
+		"date": norm_date,
+		"start_time": start_time,
+	}
+
 from theater_sched.repositories.memory import InMemoryRepository
 from theater_sched.services.scenarios import ScenarioService
 from theater_sched.domain.models import Person, Role, PersonProductionRole, Assignment
@@ -131,13 +172,16 @@ app.add_middleware(
 @app.post("/scenarios")
 def create_scenario(payload: ScenarioCreateIn) -> Dict:
 	"""Создать сценарий с входными данными и вернуть его идентификатор."""
+	# Нормализуем даты/дни недели, чтобы логика не зависела от часового пояса сервера
+	normalized_timeslots = [_normalize_timeslot(t) for t in payload.timeslots]
+	normalized_fixed = [_normalize_fixed_assignment(fa) for fa in (payload.fixed_assignments or [])]
 	s = svc.create_scenario(
 		productions=[p.model_dump() for p in payload.productions],
 		stages=[s.model_dump() for s in payload.stages],
-		timeslots=[t.model_dump() for t in payload.timeslots],
+		timeslots=normalized_timeslots,
 		revenue=payload.revenue or {},
 		params=payload.params.model_dump() if payload.params else None,
-		fixed_assignments=[fa.model_dump() for fa in (payload.fixed_assignments or [])],
+		fixed_assignments=normalized_fixed,
 		people=[p.model_dump() for p in (payload.people or [])],
 		roles=[r.model_dump() for r in (payload.roles or [])],
 		person_production_roles=[ppr.model_dump() for ppr in (payload.person_production_roles or [])],

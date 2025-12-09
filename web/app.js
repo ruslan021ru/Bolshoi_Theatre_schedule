@@ -1,39 +1,33 @@
 // Простой веб-клиент: создаёт сценарий, запускает решатель и рисует Гантт
 
 (function () {
-    // Московский часовой пояс (UTC+3)
-    const MOSCOW_TIMEZONE_OFFSET = 3; // Часов смещения от UTC
+    const MOSCOW_TIMEZONE = 'Europe/Moscow';
+    
+    // Парсит ISO-строку без влияния локального часового пояса пользователя
+    function parseIsoLike(isoStr) {
+        if (!isoStr) return null;
+        const trimmed = isoStr.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+            // Дата без времени — парсим как полночь в UTC, потом форматируем в Москве
+            return new Date(`${trimmed}T00:00:00Z`);
+        }
+        return new Date(trimmed);
+    }
     
     // Функция для создания даты в московском времени
     function createMoscowDate(year, month, day, hours = 0, minutes = 0) {
-        // Создаем дату в UTC, вычитая смещение Москвы
-        // Например, 00:00 по Москве = 21:00 предыдущего дня UTC
-        const utcHours = hours - MOSCOW_TIMEZONE_OFFSET;
-        let utcDate = new Date(Date.UTC(year, month, day, utcHours, minutes));
-        // Если часы стали отрицательными, нужно скорректировать день
-        if (utcHours < 0) {
-            utcDate = new Date(Date.UTC(year, month, day - 1, 24 + utcHours, minutes));
-        }
-        return utcDate;
+        const utcDate = new Date(Date.UTC(year, month, day, hours, minutes));
+        const moscowString = utcDate.toLocaleString('en-US', { timeZone: MOSCOW_TIMEZONE });
+        return new Date(moscowString);
     }
     
     // Функция для получения дня недели в московском времени
     function getMoscowDayOfWeek(dateStr) {
-        // Парсим дату в формате YYYY-MM-DD
-        const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-        if (!match) return 0;
-        
-        const year = parseInt(match[1], 10);
-        const month = parseInt(match[2], 10) - 1; // месяц 0-11
-        const day = parseInt(match[3], 10);
-        
-        // Для правильного вычисления дня недели используем полдень по Москве
-        // 12:00 MSK = 09:00 UTC (так как Москва UTC+3)
-        // Это гарантирует, что мы всегда получим правильный день недели для этой даты в Москве
-        // даже если UTC дата сдвинется на предыдущий день
-        const utcHours = 12 - MOSCOW_TIMEZONE_OFFSET; // 12 - 3 = 9 (09:00 UTC)
-        const moscowDate = new Date(Date.UTC(year, month, day, utcHours, 0));
-        const jsDow = moscowDate.getUTCDay();
+        const baseDate = parseIsoLike(dateStr);
+        if (!(baseDate instanceof Date) || isNaN(baseDate)) return 0;
+        const moscowString = baseDate.toLocaleString('en-US', { timeZone: MOSCOW_TIMEZONE });
+        const moscowDate = new Date(moscowString);
+        const jsDow = moscowDate.getDay(); // 0=Sunday
         // Преобразуем: 0=ВС->6, 1=ПН->0, 2=ВТ->1, ..., 6=СБ->5
         return jsDow === 0 ? 6 : jsDow - 1;
     }
@@ -2223,37 +2217,37 @@
     // Тестовые данные для людей (дирижеры и артисты)
     state.people = [
         // Дирижеры
-        { id: 'conductor1', name: 'Валерий Гергиев', email: 'gergev@theater.ru' },
-        { id: 'conductor2', name: 'Владимир Федосеев', email: 'fedoseev@theater.ru' },
-        { id: 'conductor3', name: 'Александр Ведерников', email: 'vedernikov@theater.ru' },
-        { id: 'conductor4', name: 'Туганов Михаил', email: 'tuganov@theater.ru' },
+        { id: 'conductor1', name: 'Антон Гришанин', email: 'grishanin@theater.ru' },
+        { id: 'conductor2', name: 'Павел Сорокин', email: 'sorokin@theater.ru' },
+        { id: 'conductor3', name: 'Туган Сохиев', email: 'sohiev@theater.ru' },
+        { id: 'conductor4', name: 'Павел Клиничев', email: 'klinichev@theater.ru' },
         // Артисты (оперные певцы)
-        { id: 'singer1', name: 'Анна Нетребко', email: 'netrebko@theater.ru' },
-        { id: 'singer2', name: 'Дмитрий Хворостовский', email: 'khvorostovsky@theater.ru' },
-        { id: 'singer3', name: 'Елена Образцова', email: 'obraztsova@theater.ru' },
-        { id: 'singer4', name: 'Иван Козловский', email: 'kozlovsky@theater.ru' },
-        { id: 'singer5', name: 'Мария Гулегина', email: 'gulegina@theater.ru' },
-        { id: 'singer6', name: 'Владимир Атлантов', email: 'atlantov@theater.ru' },
-        { id: 'singer7', name: 'Галина Вишневская', email: 'vishnevskaya@theater.ru' },
-        { id: 'singer8', name: 'Сергей Лемешев', email: 'lemeshev@theater.ru' },
-        { id: 'singer9', name: 'Ирина Архипова', email: 'arkhipova@theater.ru' },
-        { id: 'singer10', name: 'Евгений Нестеренко', email: 'nesterenko@theater.ru' },
+        { id: 'singer1', name: 'Полина Авилова', email: 'avilova@theater.ru' },
+        { id: 'singer2', name: 'Марина Вульф', email: 'vulff@theater.ru' },
+        { id: 'singer3', name: 'Мария Евстигнеева', email: 'evstigneeva@theater.ru' },
+        { id: 'singer4', name: 'Мура Холодовская', email: 'holodovskaya@theater.ru' },
+        { id: 'singer5', name: 'Константин Шушаков', email: 'shushakov@theater.ru' },
+        { id: 'singer6', name: 'Илья Селиванов', email: 'selivanov@theater.ru' },
+        { id: 'singer7', name: 'Медея Чикашвили', email: 'chikashvili@theater.ru' },
+        { id: 'singer8', name: 'Денис Макаров', email: 'makarov@theater.ru' },
+        { id: 'singer9', name: 'Ольга Глебова', email: 'arkhipova@theater.ru' },
+        { id: 'singer10', name: 'Артём Попов', email: 'popov@theater.ru' },
         // Артисты (балетные танцовщики)
-        { id: 'dancer1', name: 'Галина Уланова', email: 'ulanova@theater.ru' },
-        { id: 'dancer2', name: 'Майя Плисецкая', email: 'plisetskaya@theater.ru' },
-        { id: 'dancer3', name: 'Владимир Васильев', email: 'vasiliev@theater.ru' },
-        { id: 'dancer4', name: 'Екатерина Максимова', email: 'maximova@theater.ru' },
-        { id: 'dancer5', name: 'Михаил Барышников', email: 'baryshnikov@theater.ru' },
-        { id: 'dancer6', name: 'Наталья Осипова', email: 'osipova@theater.ru' },
-        { id: 'dancer7', name: 'Иван Васильев', email: 'vasiliev_i@theater.ru' },
-        { id: 'dancer8', name: 'Светлана Захарова', email: 'zakharova@theater.ru' },
-        { id: 'dancer9', name: 'Денис Родькин', email: 'rodkin@theater.ru' },
-        { id: 'dancer10', name: 'Ольга Смирнова', email: 'smirnova@theater.ru' },
+        { id: 'dancer1', name: 'Вероника Хорошева', email: 'horosheva@theater.ru' },
+        { id: 'dancer2', name: 'Владимир Комович', email: 'komovich@theater.ru' },
+        { id: 'dancer3', name: 'Гузель Шарипова', email: 'sharipova@theater.ru' },
+        { id: 'dancer4', name: 'Анна Семенюк', email: 'semenyuk@theater.ru' },
+        { id: 'dancer5', name: 'Александр Бородин', email: 'borodin@theater.ru' },
+        { id: 'dancer6', name: 'Ирина Марченкова', email: 'marchenko@theater.ru' },
+        { id: 'dancer7', name: 'Андрей Потатурин', email: 'potaturin@theater.ru' },
+        { id: 'dancer8', name: 'Андрей Григорьев', email: 'grigoryev@theater.ru' },
+        { id: 'dancer9', name: 'Марат Гали', email: 'gal@theater.ru' },
+        { id: 'dancer10', name: 'Михаил Яненко', email: 'yanenko@theater.ru' },
         // Универсальные артисты (могут и петь, и танцевать)
-        { id: 'artist1', name: 'Александр Иванов', email: 'ivanov@theater.ru' },
-        { id: 'artist2', name: 'Мария Петрова', email: 'petrova@theater.ru' },
-        { id: 'artist3', name: 'Сергей Смирнов', email: 'smirnov@theater.ru' },
-        { id: 'artist4', name: 'Елена Волкова', email: 'volkova@theater.ru' },
+        { id: 'artist1', name: 'Алексей Сулимов', email: 'sulimov@theater.ru' },
+        { id: 'artist2', name: 'Демьян Онуфрак', email: 'onufrak@theater.ru' },
+        { id: 'artist3', name: 'Василий Гафнер', email: 'gaffner@theater.ru' },
+        { id: 'artist4', name: 'Павел Паремузов', email: 'paremuzov@theater.ru' },
     ];
     
     // Генерируем роли для всех спектаклей
@@ -2871,50 +2865,30 @@
 
     // Форматируем время для отображения (в московском времени)
     function formatTime(isoStr) {
-        // Парсим ISO строку и конвертируем в московское время
-        const d = new Date(isoStr);
-        // Если строка в формате YYYY-MM-DDTHH:MM:SS, парсим вручную
-        if (isoStr.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/)) {
-            const match = isoStr.match(/T(\d{2}):(\d{2})/);
-            if (match) {
-                // Проверяем, есть ли информация о часовом поясе в строке
-                const hasTimezone = isoStr.includes('+') || isoStr.includes('-') || isoStr.endsWith('Z');
-                if (hasTimezone) {
-                    // Если есть часовой пояс, используем методы Date для конвертации
-                    const utcHours = d.getUTCHours();
-                    const utcMins = d.getUTCMinutes();
-                    const moscowHours = (utcHours + MOSCOW_TIMEZONE_OFFSET) % 24;
-                    return `${String(moscowHours).padStart(2, '0')}:${String(utcMins).padStart(2, '0')}`;
-                } else {
-                    // Если нет часового пояса, предполагаем что это уже московское время
-                    return `${match[1]}:${match[2]}`;
-                }
-            }
-        }
-        // Fallback: конвертируем UTC время в московское
-        const utcHours = d.getUTCHours();
-        const utcMins = d.getUTCMinutes();
-        const moscowHours = (utcHours + MOSCOW_TIMEZONE_OFFSET) % 24;
-        return `${String(moscowHours).padStart(2, '0')}:${String(utcMins).padStart(2, '0')}`;
+        const d = parseIsoLike(isoStr);
+        if (!(d instanceof Date) || isNaN(d)) return '--:--';
+        const formatter = new Intl.DateTimeFormat('ru-RU', {
+            timeZone: MOSCOW_TIMEZONE,
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        });
+        const parts = formatter.formatToParts(d);
+        const hour = parts.find(p => p.type === 'hour')?.value ?? '00';
+        const minute = parts.find(p => p.type === 'minute')?.value ?? '00';
+        return `${hour}:${minute}`;
     }
 
     function formatDate(isoStr) {
-        // Парсим ISO строку и используем московское время
-        const d = new Date(isoStr);
-        // Если строка в формате YYYY-MM-DD, парсим вручную
-        if (isoStr.match(/^\d{4}-\d{2}-\d{2}/)) {
-            const match = isoStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-            if (match) {
-                const year = parseInt(match[1], 10);
-                const month = parseInt(match[2], 10) - 1;
-                const day = parseInt(match[3], 10);
-                const months = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-                return `${day} ${months[month]}`;
-            }
-        }
-        // Fallback: используем UTC дату (так как дата не зависит от времени)
-        const months = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-        return `${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
+        const d = parseIsoLike(isoStr);
+        if (!(d instanceof Date) || isNaN(d)) return '';
+        const formatter = new Intl.DateTimeFormat('ru-RU', {
+            timeZone: MOSCOW_TIMEZONE,
+            day: 'numeric',
+            month: 'short',
+        });
+        // Убираем точку после месяца (янв., фев. -> янв, фев)
+        return formatter.format(d).replace('.', '');
     }
 
 	// Загрузка расписания из API (заменяет renderGantt)
