@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: theater_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # сюда можно вынести настройки, если появятся
+      PYTHONUNBUFFERED: "1"
+
+  nginx:
+    build:
+      context: .
+      dockerfile: deploy/nginx/Dockerfile
+    container_name: theater_nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    # Если нужен HTTPS, позже добавим 443 и сертификаты
