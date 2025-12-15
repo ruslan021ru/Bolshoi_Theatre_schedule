@@ -34,6 +34,7 @@
     
     // Получаем API URL из localStorage или используем значение по умолчанию
     function getApiBaseUrl() {
+        localStorage.setItem('api_base_url', 'http://176.114.88.77/api');
         const saved = localStorage.getItem('api_base_url');
         if (saved) return saved;
         // Пытаемся определить автоматически
