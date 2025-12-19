@@ -50,41 +50,11 @@
     const statusEl = document.getElementById('status');
     const btnCreate = document.getElementById('btnCreate');
     const btnSolve = document.getElementById('btnSolve');
-    const apiBaseUrlInput = document.getElementById('apiBaseUrlInput');
-    const btnSaveApiUrl = document.getElementById('btnSaveApiUrl');
-    
-    // Устанавливаем текущий API URL в поле ввода при загрузке
-    if (apiBaseUrlInput) {
-        apiBaseUrlInput.value = API_BASE_URL;
-    }
-    
-    // Обработчик для сохранения API URL
-    if (btnSaveApiUrl && apiBaseUrlInput) {
-        btnSaveApiUrl.onclick = () => {
-            const newUrl = apiBaseUrlInput.value.trim();
-            if (newUrl) {
-                // Проверяем, что это валидный URL
-                try {
-                    const url = new URL(newUrl);
-                    // Убираем завершающий слэш если есть
-                    const cleanUrl = newUrl.replace(/\/$/, '');
-                    API_BASE_URL = cleanUrl;
-                    localStorage.setItem('api_base_url', cleanUrl);
-                    setStatus(`✅ API URL сохранён: ${cleanUrl}`, false, true);
-                } catch (e) {
-                    setStatus('Ошибка: введите корректный URL (например, https://your-api.onrender.com)', true);
-                }
-            } else {
-                setStatus('Ошибка: введите корректный API URL', true);
-            }
-        };
-    }
 
     const productionsList = document.getElementById('productionsList');
     const stagesList = document.getElementById('stagesList');
     const timeslotsList = document.getElementById('timeslotsList');
     const addProductionBtn = document.getElementById('addProduction');
-    const addStageBtn = document.getElementById('addStage');
     
 
     let scenarioId = null;
@@ -2165,14 +2135,6 @@
             });
             renderProductions();
         };
-    addStageBtn.onclick = () => { 
-        state.stages.push({ 
-            id: `stage_${Date.now()}`, 
-            name: '' 
-        }); 
-        renderStages(); 
-        renderProductions(); 
-    };
     // Кнопка "Добавить таймслот" удалена, теперь используется "Добавить слот сцены" в каждой секции
     // Кнопка "Сгенерировать месяц" также удалена
     

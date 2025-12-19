@@ -829,7 +829,6 @@
 				<div id="sub-tab-stages" class="sub-tab-content">
 					<div style="max-height: calc(100vh - 400px); overflow-y: auto;">
 						<div id="stagesList"></div>
-						<button id="addStage" style="width: 100%; margin-top: 12px;">+ Добавить сцену</button>
 					</div>
 				</div>
 
@@ -869,7 +868,7 @@
 				<div id="sub-tab-constraints" class="sub-tab-content">
 					<div id="constraintsPanel">
 						<div style="margin-bottom: 20px;">
-							<strong style="color: #2d1b2d; font-size: 16px; display: block; margin-bottom: 12px; font-family: 'Playfair Display', serif;">Жёсткие ограничения:</strong>
+							<strong style="color: #2d1b2d; font-size: 16px; display: block; margin-bottom: 12px; font-family: 'Playfair Display', serif;">Обязательные требования:</strong>
 							<div style="display: flex; flex-direction: column; gap: 8px;">
 								<!-- Скрытые ограничения, которые всегда включены -->
 								<input type="checkbox" id="constraint_one_production_per_timeslot" checked style="display: none;">
@@ -889,7 +888,7 @@
 							</div>
 						</div>
 						<div>
-							<strong style="color: #2d1b2d; font-size: 16px; display: block; margin-bottom: 12px; font-family: 'Playfair Display', serif;">Мягкие ограничения:</strong>
+							<strong style="color: #2d1b2d; font-size: 16px; display: block; margin-bottom: 12px; font-family: 'Playfair Display', serif;">Предпочтения:</strong>
 							<div style="display: flex; flex-direction: column; gap: 8px;">
 								<label style="display: flex; align-items: center; cursor: pointer;">
 									<input type="checkbox" id="constraint_break_between_different_shows" checked style="width: auto; margin-right: 8px; margin-top: 0;">
@@ -907,12 +906,6 @@
 				<!-- Подвкладка "Действия" -->
 				<div id="sub-tab-actions" class="sub-tab-content">
 					<div style="display: flex; flex-direction: column; gap: 16px;">
-						<div style="padding: 12px; background: rgba(255,255,255,0.5); border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.3);">
-							<label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a202c;">API Base URL:</label>
-							<input type="text" id="apiBaseUrlInput" placeholder="https://your-api.onrender.com" style="width: 100%; padding: 8px 12px; border: 2px solid rgba(148, 163, 184, 0.3); border-radius: 6px; font-size: 14px; margin-bottom: 8px;">
-							<button id="btnSaveApiUrl" style="width: 100%; padding: 8px; background: linear-gradient(135deg, #475569 0%, #334155 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Сохранить API URL</button>
-							<div class="small" style="margin-top: 8px;">Укажите URL вашего API сервера (например, https://your-api.onrender.com)</div>
-						</div>
 						<div>
 							<button id="btnCreate" style="width: 100%; margin-bottom: 12px;">Создать сценарий</button>
 							<div class="small">Создаёт сценарий на основе текущих данных</div>
