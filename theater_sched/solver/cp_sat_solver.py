@@ -1,28 +1,6 @@
 from __future__ import annotations
-
-"""
-CP-SAT решатель для расписания театра.
-
-Назначаем постановки (productions) в таймслоты (timeslots):
-  - Переменные: x[p,t] ∈ {0,1} — ставим ли постановку p в слот t
-  - Таймслоты теперь привязаны к конкретной сцене (timeslot.stage_id)
-  - Жёсткие ограничения:
-      * В каждом таймслоте максимум одна постановка
-      * Постановка может быть только в таймслотах своей сцены (production.stage_id == timeslot.stage_id)
-      * Для каждой постановки точно max_shows показов
-      * Все показы одного спектакля должны идти подряд без пропусков
-      * Понедельник — выходной
-      * В выходные всегда должен быть какой-то спектакль на каждой сцене
-      * В один конкретный выходной день можно, чтобы один из двух слотов был пустым
-      * Спектакли с weekend_priority=True имеют приоритет на выходные дни (большой бонус в целевой функции)
-  - Мягкие ограничения (штрафы):
-      * Между разными спектаклями желателен 1 день перерыва
-  - Цель: максимизировать назначения с учётом штрафов
-"""
-
 from collections import defaultdict
 from typing import Dict, List, Tuple
-
 from ortools.sat.python import cp_model
 
 from theater_sched.domain.models import (
@@ -45,119 +23,70 @@ def _key(p: str, s: str, t: str) -> str:
 
 class MinimalCPSATSolver:
 	def solve(self, scenario: Scenario) -> ScenarioResult:
-		# Создаём модель CP-SAT
 		model = cp_model.CpModel()
 
-		# Входные данные из сценария
+		# Вытаскиваем данные из созданного сценария
 		productions: List[Production] = scenario.productions
 		timeslots: List[TimeSlot] = scenario.timeslots
 		constraints = scenario.params.constraints        # зачем ?
 		fixed_assignments: List[FixedAssignment] = scenario.fixed_assignments or []
 
-		
+		# Инициализация переменных для модели
 		x: Dict[Tuple[str, str], cp_model.IntVar] = {}
 		for p in productions:
 			for t in timeslots:
-				# Только если сцена постановки совпадает со сценой таймслота
 				if p.stage_id == t.stage_id:
-					var = model.NewBoolVar(f"x_{p.id}_{t.id}")
-					x[(p.id, t.id)] = var
-				# Если сцены не совпадают, переменная не создаётся (автоматически = 0)
+					x[(p.id, t.id)] = model.NewBoolVar(f"x_{p.id}_{t.id}")
 
-		# Жёсткое ограничение: закреплённые назначения (фиксированные спектакли)
+		# Жесткие ограничения:
+
+		# Учёт фиксированных спектаклей
 		for fa in fixed_assignments:
 			var = x.get((fa.production_id, fa.timeslot_id))
-			if var is not None:
-				# Закрепляем: эта постановка должна быть назначена в этот таймслот
-				model.Add(var == 1)
-			# Если переменной нет (несовместимые сцены), игнорируем (или можно выбросить ошибку)
-			# Также нужно убедиться, что другие постановки не могут быть в этом таймслоте
-			# (это уже обеспечивается ограничением one_production_per_timeslot)
+			if var is not None: model.Add(var == 1)
+			else: raise Exception("Входные данные не согласованы")
 
-		# Жёсткое ограничение: в каждом таймслоте максимум одна постановка (всегда включено)
+		# Каждый таймслот -> максимум одна постановка
 		for t in timeslots:
-			# Берём только постановки, которые могут быть на этой сцене
 			relevant_prods = [p for p in productions if p.stage_id == t.stage_id]
 			if relevant_prods:
-				# Собираем переменные для этого таймслота
-				slot_vars = [x.get((p.id, t.id)) for p in relevant_prods]
-				slot_vars = [v for v in slot_vars if v is not None]
-				if slot_vars:
-					model.Add(sum(slot_vars) <= 1)
+				slot_vars = [x.get((p.id, t.id)) for p in relevant_prods if x.get((p.id, t.id)) is not None]
+				if slot_vars: model.Add(sum(slot_vars) <= 1)
 
-					# Жёсткое ограничение: для выходных слотов (суббота, воскресенье) — слот должен быть обязательно занят
-					# ЗАКОММЕНТИРОВАНО для экспериментов - теперь это мягкое ограничение
-					# if constraints.weekend_always_show and t.day_of_week in [5, 6]:
-					# 	model.Add(sum(slot_vars) == 1)
-
-		# Жёсткое ограничение: точное количество показов для каждой постановки (всегда включено)
+		# Учёт требуемого количества постановок
 		for p in productions:
-			# Только таймслоты на сцене этой постановки
 			relevant_slots = [t for t in timeslots if t.stage_id == p.stage_id]
-			prod_vars = []
-			for t in relevant_slots:
-				var = x.get((p.id, t.id))
-				if var is not None:
-					prod_vars.append(var)
-			if prod_vars:
-				model.Add(sum(prod_vars) == p.max_shows)
-			else:
-				# Если нет подходящих таймслотов, но требуется max_shows > 0, задача невыполнима
-				# Просто пропускаем - если нет переменных, то ограничение не добавится
-				# И задача будет невыполнимой естественным образом
-				pass
+			prod_vars = [x.get((p.id, t.id)) for t in relevant_slots if x.get((p.id, t.id)) is not None]
+			if prod_vars: model.Add(sum(prod_vars) == p.max_shows)
+			else: raise Exception("Для данной сцены нет таймслотов")
 
-		# Жёсткое ограничение: все показы одного спектакля должны идти подряд без пропусков
-		# Используем индикаторные переменные для начала последовательности
+		# Понедельник - выходной день
+		if constraints.monday_off:
+			for t in timeslots:
+				if t.day_of_week == 0:
+					relevant_prods = [p for p in productions if p.stage_id == t.stage_id]
+					prod_vars = [x.get((p.id, t.id)) for p in relevant_prods if x.get((p.id, t.id)) is not None]
+					model.Add(sum(prod_vars) == 0)
+
+		# Показы спектаклей идут подряд
 		if constraints.consecutive_shows:
 			for p in productions:
-				if p.max_shows <= 1:
-					continue
-				# Только таймслоты на сцене этой постановки
-				ts_for_prod = sorted(
-					[t for t in timeslots if t.stage_id == p.stage_id],
-					key=lambda ts: (ts.date, ts.start_time)
-				)
-				if len(ts_for_prod) < p.max_shows:
-					continue
+				if p.max_shows <= 1: continue
+				ts_for_prod = sorted([t for t in timeslots if t.stage_id == p.stage_id],
+									  key=lambda ts: (ts.date, ts.start_time))
 				
-				# Индикатор начала последовательности: ровно одно начало для max_shows подряд идущих показов
 				start_vars = {}
-				for i in range(len(ts_for_prod)):
-					# Можно начать последовательность только если хватает слотов вперёд
-					if i + p.max_shows > len(ts_for_prod):
-						break
+				for i in range(len(ts_for_prod)-p.max_shows+1):
 					start_var = model.NewBoolVar(f"start_{p.id}_{ts_for_prod[i].id}")
 					start_vars[ts_for_prod[i].id] = start_var
 					
-					# Если start_var = 1, то следующие max_shows слотов должны быть заняты этим спектаклем
+					# после открывающего спектакля -> все остальные идут за ним
 					for j in range(p.max_shows):
-						if i + j < len(ts_for_prod):
-							var = x.get((p.id, ts_for_prod[i + j].id))
-							if var is not None:
-								# Если начали последовательность, этот слот должен быть занят
-								model.Add(var >= start_var)
-					
-					# Если start_var = 1, предыдущий слот не должен быть занят этим спектаклем
-					# (чтобы не было перекрывающихся последовательностей)
-					if i > 0:
-						var_prev = x.get((p.id, ts_for_prod[i - 1].id))
-						if var_prev is not None:
-							model.Add(var_prev <= 1 - start_var)
-				
-				# Ровно одно начало последовательности
-				if start_vars:
-					model.Add(sum(start_vars.values()) == 1)
+						var = x.get((p.id, ts_for_prod[i + j].id))
+						if var is not None: model.Add(var >= start_var)
 
-		# Жёсткое ограничение: понедельник — выходной (0 = понедельник)
-		if constraints.monday_off:
-			for t in timeslots:
-				if t.day_of_week == 0:  # Понедельник
-					relevant_prods = [p for p in productions if p.stage_id == t.stage_id]
-					for p in relevant_prods:
-						var = x.get((p.id, t.id))
-						if var is not None:
-							model.Add(var == 0)
+				# одно начало последовательности
+				model.Add(sum(start_vars.values()) == 1)
 
 		# Группируем выходные слоты по неделе (год + номер недели) и сцене (для бонусов и вспомогательной логики)
 		from datetime import datetime
