@@ -183,7 +183,6 @@ class MinimalCPSATSolver:
 		cp_solver = cp_model.CpSolver()
 		cp_solver.parameters.max_time_in_seconds = scenario.params.time_limit_seconds
 		cp_solver.parameters.num_search_workers = 8
-
 		status = cp_solver.Solve(model)
 
 		schedule: List[ScheduleItem] = []
