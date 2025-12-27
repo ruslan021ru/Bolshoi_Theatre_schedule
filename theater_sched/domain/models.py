@@ -12,20 +12,12 @@ from typing import Dict, List, Optional
 
 @dataclass
 class Production:
-	"""Постановка/спектакль."""
+	"""Постановка"""
 	id: str                      	 # ID постановки
 	title: str                       # Название постановки
 	stage_id: str                    # ID сцены
 	max_shows: int = 1               # Требуемое количество показов
 	weekend_priority: bool = False   # Приоритет на выходные дни
-
-
-@dataclass
-class Stage:
-	"""Сцена/площадка"""
-	id: str    # ID сцены
-	name: str  # Название сцены
-
 
 @dataclass
 class TimeSlot:
@@ -36,8 +28,14 @@ class TimeSlot:
 	id: str                        # ID таймслота
 	stage_id: str                  # ID сцены
 	date: str                      # ISO date string, "2025-11-01"
-	day_of_week: int = 0           # 0=Monday, 6=Sunday    ?
+	day_of_week: int = 0           # 0=Monday, 6=Sunday
 	start_time: str = "19:00"      # "HH:MM" - время начала для этой сцены
+
+@dataclass
+class Stage:
+	"""Сцена"""
+	id: str    # ID сцены
+	name: str  # Название сцены
 
 
 @dataclass
@@ -78,7 +76,7 @@ class Constraints:
 class ScenarioParams:
 	"""Параметры расчёта: веса целей и ограничения времени."""
 	objective_weights: Dict[str, float] = field(default_factory=lambda: {"revenue": 1.0})  # зачем ?
-	time_limit_seconds: int = 5                                                            # зачем ?
+	time_limit_seconds: float = 7.0                                                            
 	constraints: Constraints = field(default_factory=Constraints)
 
 

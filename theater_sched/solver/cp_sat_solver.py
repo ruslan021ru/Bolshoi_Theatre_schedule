@@ -88,103 +88,32 @@ class MinimalCPSATSolver:
 				# одно начало последовательности
 				model.Add(sum(start_vars.values()) == 1)
 
-		# Группируем выходные слоты по неделе (год + номер недели) и сцене (для бонусов и вспомогательной логики)
-		from datetime import datetime
-		import pytz
-		
-		# Московский часовой пояс
-		MOSCOW_TZ = pytz.timezone('Europe/Moscow')
-		
-		def get_week_key(date_str: str) -> str:
-			"""Возвращает ключ недели (год-неделя) для группировки субботы и воскресенья в московском времени."""
-			try:
-				# Парсим дату в формате YYYY-MM-DD (без времени)
-				if len(date_str) == 10 and date_str.count('-') == 2:
-					# Формат YYYY-MM-DD - создаем дату в московском времени (полночь)
-					naive_dt = datetime.fromisoformat(date_str)
-					# Локализуем в московское время
-					moscow_dt = MOSCOW_TZ.localize(naive_dt)
-				else:
-					# Если есть время, берем только дату
-					naive_dt = datetime.fromisoformat(date_str.split('T')[0])
-					moscow_dt = MOSCOW_TZ.localize(naive_dt)
-				# Используем ISO week в московском времени: (год, номер недели)
-				iso_year, iso_week, _ = moscow_dt.isocalendar()
-				return f"{iso_year}-W{iso_week:02d}"
-			except (ValueError, AttributeError):
-				# Если не удалось распарсить дату, используем дату как ключ
-				return date_str
-		
-		slots_by_week_stage = defaultdict(lambda: defaultdict(list))
-		for t in timeslots:
-			if t.day_of_week in [5, 6]:  # Суббота (5) или воскресенье (6)
-				week_key = get_week_key(t.date)
-				slots_by_week_stage[week_key][t.stage_id].append(t)
 
-		# Бонусы для спектаклей с приоритетом на выходные (используются в целевой функции)
-		weekend_priority_bonus: List[cp_model.LinearExpr] = []
-		
-		for week_key, stages_dict in slots_by_week_stage.items():
-			for stage_id, weekend_slots in stages_dict.items():
-				if len(weekend_slots) >= 1:
-					# Группируем слоты по дням (суббота/воскресенье)
-					slots_by_day = defaultdict(list)
-					for slot in weekend_slots:
-						slots_by_day[slot.day_of_week].append(slot)
-					
-					# Собираем все переменные для выходных слотов этой сцены
-					all_weekend_vars = []
-					for slot in weekend_slots:
-						for p in productions:
-							if p.stage_id == stage_id:
-								var = x.get((p.id, slot.id))
-								if var is not None:
-									all_weekend_vars.append(var)
-					
-					# Для каждой постановки на этой сцене
-					for p in productions:
-						if p.stage_id == stage_id:
-							# Собираем переменные для субботы и воскресенья отдельно
-							saturday_vars = []
-							sunday_vars = []
-							
-							if 5 in slots_by_day:  # Суббота
-								for slot in slots_by_day[5]:
-									var = x.get((p.id, slot.id))
-									if var is not None:
-										saturday_vars.append(var)
-							
-							if 6 in slots_by_day:  # Воскресенье
-								for slot in slots_by_day[6]:
-									var = x.get((p.id, slot.id))
-									if var is not None:
-										sunday_vars.append(var)
-							
-							# Бонус для спектаклей с приоритетом на выходные
-							if constraints.weekend_priority_bonus and p.weekend_priority:
-								# Если спектакль с приоритетом назначен в выходные, даём большой бонус
-								weekend_slot_vars = saturday_vars + sunday_vars
-								if weekend_slot_vars:
-									# Бонус пропорционален количеству выходных слотов, где назначен спектакль
-									weekend_priority_bonus.append(sum(weekend_slot_vars))
+		# Мягкие ограничения (максимизация)
 
-		# Мягкое ограничение: выходные слоты должны быть заполнены (штраф за пустые выходные слоты)
+		# Заполнение каждого слота в выходной день
 		weekend_empty_penalty: List[cp_model.LinearExpr] = []
 		if constraints.weekend_always_show:
-			for t in timeslots:
-				if t.day_of_week in [5, 6]:  # Суббота (5) или воскресенье (6)
-					relevant_prods = [p for p in productions if p.stage_id == t.stage_id]
-					slot_vars = [x.get((p.id, t.id)) for p in relevant_prods]
-					slot_vars = [v for v in slot_vars if v is not None]
-					if slot_vars:
-						# Создаём переменную, показывающую, что слот пуст (sum == 0)
-						slot_sum = sum(slot_vars)
-						# Штраф за пустой слот: если sum == 0, то штраф = 1, иначе 0
-						# Используем обратную логику: штраф = 1 - sum (но sum может быть 0 или 1)
-						# Для мягкого ограничения: штраф = 1 - slot_sum (если пусто, штраф = 1)
-						# Но нужно учесть, что sum может быть только 0 или 1 из-за ограничения <= 1
-						# Поэтому просто добавляем (1 - slot_sum) как штраф
-						weekend_empty_penalty.append(1 - slot_sum)
+			for t in [t for t in timeslots if t.day_of_week in (5, 6)]:
+				relevant_prods = [p for p in productions if p.stage_id == t.stage_id]
+				slot_vars = [x.get((p.id, t.id)) for p in relevant_prods if x.get((p.id, t.id)) is not None]
+				if slot_vars:
+					weekend_empty_penalty.append(1 - sum(slot_vars))
+
+		# Учёт приоритета для спектаклей выходного дня
+		weekend_priority_bonus: List[cp_model.LinearExpr] = []
+		if constraints.weekend_priority_bonus:
+			slots_by_stage = defaultdict(list)
+			for t in (t for t in timeslots if t.day_of_week in (5, 6)):
+				slots_by_stage[t.stage_id].append(t)
+
+			for p in (p for p in productions if p.weekend_priority):
+				weekend_slot_vars = []
+				for slot in slots_by_stage[p.stage_id]:
+					var = x.get((p.id, slot.id))
+					if var is not None: weekend_slot_vars.append(var)
+
+				weekend_priority_bonus.append(sum(weekend_slot_vars))
 
 		# Мягкое ограничение: между РАЗНЫМИ спектаклями желателен пустой слот (перерыв)
 		# Реализуем штраф за отсутствие пустого слота между разными спектаклями на буднях (Вт–Пт)
@@ -234,23 +163,25 @@ class MinimalCPSATSolver:
 					penalty_terms.append(both_assigned - same_sum)
 		
 
-		# Целевая функция: максимизируем назначения минус штрафы за отсутствие перерывов
-		# Плюс большой бонус для спектаклей с приоритетом на выходные
-		# Минус штраф за пустые выходные слоты (мягкое ограничение)
-		# Вес штрафа меньше веса назначений, чтобы не нарушать основную цель
-		# Бонус для выходных имеет очень большой вес, чтобы приоритетные спектакли назначались в выходные
-		objective_terms = [sum(x.values()) * 100]
-		if constraints.break_between_different_shows:
-			objective_terms.append(-sum(penalty_terms) * 50)  # Штраф за отсутствие перерывов между разными спектаклями
-		if constraints.weekend_always_show and weekend_empty_penalty:
-			objective_terms.append(-sum(weekend_empty_penalty))  # Штраф за пустые выходные слоты (мягкое ограничение)
-		if constraints.weekend_priority_bonus:
-			objective_terms.append(sum(weekend_priority_bonus) * 100)  # Большой бонус за приоритетные спектакли в выходные
+		# Целевая функция:
+
+			# заполнение слотов в выходные дни    - штраф
+			# приоритет выходных спектаклей       - награда
+			# интервалы между разными спектаклями - штраф
+
+		objective_terms = []
+		# штраф - отсутствие перерыва между разными спектаклями
+		if constraints.break_between_different_shows: objective_terms.append(-sum(penalty_terms) * 50)
+		# штраф - пустые выходные слоты
+		if constraints.weekend_always_show and weekend_empty_penalty: objective_terms.append(-sum(weekend_empty_penalty))
+		# награда - приоритет выходных спектаклей
+		if constraints.weekend_priority_bonus: objective_terms.append(sum(weekend_priority_bonus) * 100)
+
 		model.Maximize(sum(objective_terms))
 
 		# Запускаем решатель
 		cp_solver = cp_model.CpSolver()
-		cp_solver.parameters.max_time_in_seconds = float(max(1, scenario.params.time_limit_seconds))
+		cp_solver.parameters.max_time_in_seconds = scenario.params.time_limit_seconds
 		cp_solver.parameters.num_search_workers = 8
 
 		status = cp_solver.Solve(model)

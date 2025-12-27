@@ -35,6 +35,7 @@
     // Получаем API URL из localStorage или используем значение по умолчанию
     function getApiBaseUrl() {
         localStorage.setItem('api_base_url', 'http://176.114.88.77/api');
+        // localStorage.setItem('api_base_url', 'http://localhost:8000');
         const saved = localStorage.getItem('api_base_url');
         if (saved) return saved;
         // Пытаемся определить автоматически
@@ -2729,7 +2730,7 @@
             
 			const data = await res.json();
 			scenarioId = data.scenario_id;
-			setStatus(`✅ Сценарий создан: ${scenarioId}`, false, true);
+			setStatus(`✅ Сценарий создан`, false, true);
 			console.log('Сценарий успешно создан:', scenarioId);
 			// Загружаем людей, роли и назначения после создания сценария
 			await loadPeople();
@@ -2763,7 +2764,7 @@
 			return;
 		}
 		try {
-			setStatus('Запускаем решатель...');
+			setStatus('Составляем расписание');
 			const apiUrl = `${API_BASE_URL}/scenarios/${scenarioId}/solve`;
 			const constraints = getConstraints();
 			
@@ -2797,10 +2798,10 @@
 			}
 			
 			const result = await res.json();
-			const statusMsg = result.status === 'optimal' ? '✅ Оптимальное решение' : 
+			const statusMsg = result.status === 'optimal' ? '✅ Расписание составлено' : 
 							  result.status === 'feasible' ? '✓ Допустимое решение' : 
 							  '⚠ Не найдено решение';
-			setStatus(`${statusMsg}. Назначений: ${result.objective_value}`, false, result.status !== 'infeasible');
+			setStatus(`${statusMsg}`, false, result.status !== 'infeasible');
 			// Загружаем расписание без прокрутки
 			await loadSchedule();
 			// Загружаем людей, роли и назначения
