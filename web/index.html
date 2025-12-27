@@ -882,9 +882,43 @@
 			box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
 			background: linear-gradient(135deg, var(--theater-gold-light) 0%, var(--theater-gold) 100%);
 		}
+
+		/* Анимация падающего снега */
+		.snow-container {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			pointer-events: none;
+			z-index: 9999;
+			overflow: hidden;
+		}
+		.snowflake {
+			position: absolute;
+			color: #ffffff;
+			font-size: 1em;
+			font-family: Arial, sans-serif;
+			text-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
+			user-select: none;
+			animation: snowfall linear infinite;
+		}
+		@keyframes snowfall {
+			0% {
+				transform: translateY(var(--start-y)) translateX(0) rotate(0deg);
+				opacity: 1;
+			}
+			100% {
+				transform: translateY(calc(var(--start-y) + 100vh)) translateX(var(--drift)) rotate(360deg);
+				opacity: 0;
+			}
+		}
 	</style>
 </head>
 <body>
+	<!-- Контейнер для снега -->
+	<div class="snow-container" id="snowContainer"></div>
+
 	<div class="container">
 		<div class="panel">
 			<h2 style="font-family: 'Cormorant Garamond', serif; font-size: 42px; font-weight: 700; color: var(--theater-text-dark); margin-bottom: 8px; letter-spacing: 1px;">Большой Театр</h2>
@@ -1130,6 +1164,60 @@
 			const section = header.parentElement;
 			section.classList.toggle('collapsed');
 		}
+
+		// Анимация падающего снега
+		function createSnowflake() {
+			const snowflake = document.createElement('div');
+			snowflake.className = 'snowflake';
+			snowflake.innerHTML = '❄';
+			
+			// Случайная позиция по горизонтали
+			const startX = Math.random() * 100;
+			snowflake.style.left = startX + '%';
+			
+			// Случайная начальная позиция по вертикали (от -20% до 0%, чтобы некоторые уже были видны)
+			const startY = Math.random() * 20 - 20; // от -20% до 0%
+			snowflake.style.setProperty('--start-y', startY + 'vh');
+			
+			// Случайная скорость падения
+			const duration = Math.random() * 3 + 2; // от 2 до 5 секунд
+			snowflake.style.animationDuration = duration + 's';
+			
+			// Случайный дрейф влево/вправо
+			const drift = (Math.random() - 0.5) * 100;
+			snowflake.style.setProperty('--drift', drift + 'px');
+			
+			// Увеличенный размер снежинок
+			const size = Math.random() * 1.2 + 1.0; // от 1.0 до 2.2em
+			snowflake.style.fontSize = size + 'em';
+			
+			document.getElementById('snowContainer').appendChild(snowflake);
+			
+			// Удаляем снежинку после завершения анимации
+			setTimeout(() => {
+				if (snowflake.parentNode) {
+					snowflake.parentNode.removeChild(snowflake);
+				}
+			}, (duration + 2) * 1000);
+		}
+
+		// Создаём снежинки периодически
+		function startSnowAnimation() {
+			// Создаём начальные снежинки сразу, без задержек
+			for (let i = 0; i < 30; i++) {
+				createSnowflake();
+			}
+			
+			// Продолжаем создавать новые снежинки
+			setInterval(() => {
+				createSnowflake();
+			}, 300);
+		}
+
+		// Запускаем анимацию снега при загрузке страницы
+		window.addEventListener('load', () => {
+			startSnowAnimation();
+		});
 	</script>
 	<script src="app.js"></script>
 </body>
